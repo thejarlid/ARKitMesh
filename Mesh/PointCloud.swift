@@ -12,6 +12,14 @@ import ARKit
 
 class PointCloud : SCNNode {
     
+    /*
+     code to get colour from a world point
+     
+     let worldPos = sceneView.projectPoint(contentRootNode.worldPosition)
+     let colorVector = sceneView.averageColorFromEnvironment(at: worldPos)
+     lastColorFromEnvironment = colorVector
+     */
+    
     var alivePoints:[SCNNode] = []      // array holding all active nodes in the view
     var sleepingPoints:[SCNNode] = []   // array holding old nodes that will be reused
     
@@ -23,6 +31,7 @@ class PointCloud : SCNNode {
         fatalError("init(coder:) has not been implemented")
     }
     
+    var lines:[SCNNode] = []
     func updatePointCloud(cloud: ARPointCloud) {
         self.putPointsToSleep(pts: self.alivePoints)    // put all the old nodes to sleep
         
@@ -32,6 +41,21 @@ class PointCloud : SCNNode {
             let v = cloud.points[i]
             let n = self.wakeUpPoint()
             n.simdPosition = v
+        }
+        
+        for i in 0..<cloud.points.count/2 {
+            let v = cloud.points[i]
+            let v2 = cloud.points[i+1]
+            let previousPoint = SCNVector3Make(v.x, v.y, v.z)
+            let currentPosition = SCNVector3Make(v2.x, v2.y, v2.z)
+            let line = lineFrom(vector: previousPoint, toVector: currentPosition)
+            let lineNode = SCNNode(geometry: line)
+            if lines.count > 100 {
+                let first = lines.removeFirst()
+                first.removeFromParentNode()
+            }
+            lines.append(lineNode)
+            self.addChildNode(lineNode)
         }
     }
     
@@ -43,7 +67,6 @@ class PointCloud : SCNNode {
             self.addChildNode(pt)
             self.sleepingPoints.append(pt)
         }
-        
         // take the old point out and make it visible
         let point = self.sleepingPoints.removeLast()
         self.alivePoints.append(point)
@@ -67,5 +90,14 @@ class PointCloud : SCNNode {
         let sphere = SCNSphere(radius: 0.002)
         sphere.firstMaterial?.diffuse.contents = #colorLiteral(red: 0.2186225289, green: 0.8862745166, blue: 0.5149020241, alpha: 0.4680543664)
         return SCNNode(geometry: sphere)
+    }
+    
+    func lineFrom(vector vector1: SCNVector3, toVector vector2: SCNVector3) -> SCNGeometry {
+        let indices: [Int32] = [0, 1]
+        
+        let source = SCNGeometrySource(vertices: [vector1, vector2])
+        let element = SCNGeometryElement(indices: indices, primitiveType: .line)
+        
+        return SCNGeometry(sources: [source], elements: [element])
     }
 }
